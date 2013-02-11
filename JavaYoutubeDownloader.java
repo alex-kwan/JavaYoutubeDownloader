@@ -33,20 +33,20 @@ import org.apache.http.protocol.HttpContext;
 public class JavaYoutubeDownloader {
 
  public String getVideoID( String urlString ){
-	 int start = urlString.indexOf("?v=") + 3;
-	 int end = urlString.indexOf("&", start);
-	 if ( end == -1 ){
-		 end = urlString.length();
-	 }
-	 
-	 return urlString.substring(start, end);
+   int start = urlString.indexOf("?v=") + 3;
+   int end = urlString.indexOf("&", start);
+   if ( end == -1 ){
+     end = urlString.length();
+   }
+   
+   return urlString.substring(start, end);
  }
  
  public String getExtension(int format) {
   return "mp4";
  }
 
- public void download(String videoId, int format, String encoding, String userAgent, File outputdir, String extension) throws Throwable {
+ public String download(String videoId, int format, String encoding, String userAgent, File outputdir, String extension) throws Throwable {
   Utils.log.fine("Retrieving " + videoId);
   List<NameValuePair> qparams = new ArrayList<NameValuePair>();
   qparams.add(new BasicNameValuePair("video_id", videoId));
@@ -84,34 +84,45 @@ public class JavaYoutubeDownloader {
       
       String fmtString = null;
       for (String fmt : formats) {
-    	  int itagLocation = fmt.indexOf("itag=");
-    	  if ( itagLocation == -1 ) continue;
-    	  itagLocation += 5;
-    	  int tempQuality = Integer.parseInt(fmt.substring(itagLocation, fmt.indexOf("&", itagLocation)));
-    	  if ( bestQuality < tempQuality ){
-    		  bestQuality = tempQuality;
-    		  fmtString = fmt;
-    	  }
+        int itagLocation = fmt.indexOf("itag=");
+        if ( itagLocation == -1 ) continue;
+        itagLocation += 5;
+        String subStr = null;
+        try { 
+          subStr = fmt.substring(itagLocation, fmt.indexOf("&", itagLocation));
+        }
+        catch( IndexOutOfBoundsException ex){
+          return "Could not find the itag attribute to determine quality";
+        }
+        int tempQuality = Integer.parseInt(fmt.substring(itagLocation, fmt.indexOf("&", itagLocation)));
+        if ( bestQuality < tempQuality ){
+          bestQuality = tempQuality;
+          fmtString = fmt;
+        }
+        
       }
        //we are going to automatically download the best quality youtube
-    	   int begin = fmtString.indexOf("url=");
-    	   int sig = fmtString.indexOf("sig=");
+         int begin = fmtString.indexOf("url=");
+         int sig = fmtString.indexOf("sig=");
            if (begin != -1) {
                int end = fmtString.indexOf("&", begin + 4);
                int end2 = fmtString.indexOf("&", sig + 4);
                if (end == -1) {
                   end = fmtString.length();
                }
+               if (end2 == -1 ){
+                 end2 = fmtString.length();
+               }
                String tempURL = fmtString.substring(begin+ 4, end );
                String signatureURL = "&signature="+fmtString.substring(sig + 4, end2);
                downloadUrl = new String(URLCodec.decodeUrl((tempURL + signatureURL).getBytes()));
                break;
            }
-     	}
+      }
     }
     
     if ( downloadUrl == null ){
-    	Utils.log.fine("Content is protected");
+      Utils.log.fine("Content is protected");
     }
     filename = cleanFilename(filename);
     if (filename.length() == 0) {
@@ -126,6 +137,7 @@ public class JavaYoutubeDownloader {
     }
    }
   }
+  return "successful";
  }
 
  public void downloadWithHttpClient(String userAgent, String downloadUrl, File outputfile) throws Throwable {
